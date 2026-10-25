@@ -314,12 +314,28 @@ const T = (() => {
     if (!soundOn) return;
     try { const a = SOUNDS[name]; if (!a) return; a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
   }
-  function say(text) {
-    if (!soundOn) return;
+  // Pick the clearest English voice the phone has; numbers are spoken as words.
+  let voice = null;
+  const WORDS = { 3: "three", 2: "two", 1: "one" };
+  function pickVoice() {
     try {
-      if (!window.speechSynthesis) return;
-      const u = new SpeechSynthesisUtterance(text); u.rate = 1.15; u.lang = "en-AU";
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      const vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+      const en = vs.filter(v => /^en[-_]/i.test(v.lang));
+      const pref = [/Samantha/i, /Karen/i, /Daniel/i, /Serena/i, /Moira/i, /Google UK English Female/i, /Google US English/i, /Microsoft (Aria|Jenny|Natasha|Sonia)/i];
+      voice = null;
+      for (const re of pref) { voice = en.find(v => re.test(v.name)); if (voice) break; }
+      if (!voice) voice = en.find(v => v.localService && /en[-_](AU|GB|US)/i.test(v.lang)) || en.find(v => v.localService) || en[0] || null;
+    } catch (e) { voice = null; }
+  }
+  try { if (window.speechSynthesis) { pickVoice(); speechSynthesis.addEventListener("voiceschanged", pickVoice); } } catch (e) {}
+  const canSpeak = () => !!(window.speechSynthesis && voice);
+  function say(n) {
+    if (!soundOn || !canSpeak()) return;
+    try {
+      if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); // never let numbers queue up late
+      const u = new SpeechSynthesisUtterance(WORDS[n] || String(n));
+      u.voice = voice; u.lang = voice.lang; u.rate = 1; u.pitch = 1; u.volume = 1;
+      speechSynthesis.speak(u);
     } catch (e) {}
   }
   // Phones only allow sound that was first started by a tap, so the Start tap unlocks every sound.
@@ -349,7 +365,7 @@ const T = (() => {
     left -= (now - last) / 1000; last = now;
     const whole = Math.ceil(left), p = cfg.phases[idx];
     // spoken 3-2-1 at the end of every phase that is long enough to need it
-    if (whole <= 3 && whole >= 1 && whole !== lastBeep && p.secs >= 8) { lastBeep = whole; play("tick"); say(String(whole)); }
+    if (whole <= 3 && whole >= 1 && whole !== lastBeep && p.secs >= 8) { lastBeep = whole; if (canSpeak()) say(whole); else play("tick"); }
     // a ding at each new minute during long single countdowns (AMRAP, warm-up, cool-down)
     const min = Math.ceil(left / 60);
     if (cfg.minutes && p.kind === "work" && min !== lastMin) { if (lastMin !== -1 && left > 3) play("ding"); lastMin = min; }
