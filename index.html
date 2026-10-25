@@ -1,0 +1,412 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>P&amp;E Training</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Archivo:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-column gym-floor app. Sticky week/day switcher, session time bar, blocks colour-coded like bumper plates. */
+:root {
+  --bg: #eef1ee;
+  --surface: #ffffff;
+  --ink: #18201c;
+  --muted: #5d6862;
+  --line: #d6ddd8;
+  --link: #2554a3;
+  --plate-warm: #2f8a55;   /* green plate */
+  --plate-str: #2554a3;    /* blue plate */
+  --plate-cond: #d29a12;   /* yellow plate */
+  --plate-cool: #7b8580;   /* grey */
+  --on-plate: #ffffff;
+  --on-cond: #241a00;
+  --chip: #e3e8e4;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111513; --surface: #1a201d; --ink: #e8ece9; --muted: #9aa49e; --line: #2b332f;
+    --link: #8fb1ee; --plate-warm: #49b277; --plate-str: #5d8be0; --plate-cond: #e8b43a;
+    --plate-cool: #8d9792; --on-plate: #0d1210; --on-cond: #1d1500; --chip: #232a26;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111513; --surface: #1a201d; --ink: #e8ece9; --muted: #9aa49e; --line: #2b332f;
+  --link: #8fb1ee; --plate-warm: #49b277; --plate-str: #5d8be0; --plate-cond: #e8b43a;
+  --plate-cool: #8d9792; --on-plate: #0d1210; --on-cond: #1d1500; --chip: #232a26;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { max-width: 560px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.bar .wrap { display: flex; flex-direction: column; gap: 10px; padding-block: 12px; }
+.brand { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.brand h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: 0.02em; text-transform: uppercase; line-height: 1; }
+.brand .dates { font-family: var(--display); font-weight: 500; font-size: 15px; color: var(--muted); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+
+.weeks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.weeks button, .days button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; }
+.weeks button { font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: 0.04em; padding: 6px 0; text-transform: uppercase; }
+.weeks button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.days { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.days button { display: flex; align-items: baseline; justify-content: center; gap: 8px; padding: 8px 6px; }
+.days button .d { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.days button .t { font-family: var(--display); font-weight: 700; font-size: 20px; text-transform: uppercase; letter-spacing: 0.03em; }
+.days button[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); background: var(--surface); }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+main .wrap { display: flex; flex-direction: column; gap: 18px; padding-block: 18px 40px; }
+
+.timeline { display: flex; flex-direction: column; gap: 6px; }
+.tl-bar { display: flex; height: 30px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.tl-bar span { display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 600; font-size: 14px; color: var(--on-plate); min-width: 0; white-space: nowrap; overflow: hidden; }
+.tl-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.k-warm { --p: var(--plate-warm); --op: var(--on-plate); }
+.k-str { --p: var(--plate-str); --op: var(--on-plate); }
+.k-cond { --p: var(--plate-cond); --op: var(--on-cond); }
+.k-cool { --p: var(--plate-cool); --op: var(--on-plate); }
+.tl-bar span { background: var(--p); color: var(--op); }
+
+section.block { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.bh { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.plate { flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--p); color: var(--op); display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 17px; line-height: 1; box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--op) 22%, transparent); font-variant-numeric: tabular-nums; }
+.bh h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 22px; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.05; text-wrap: balance; }
+.bh .sub { font-size: 13px; color: var(--muted); }
+.lines { list-style: none; margin: 0; padding: 6px 14px 12px; display: flex; flex-direction: column; }
+.lines li { min-width: 0; }
+.ex { display: grid; grid-template-columns: 3.4rem 1fr; gap: 10px; align-items: baseline; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+.ex:last-child { border-bottom: 0; }
+.q { font-family: var(--display); font-weight: 600; font-size: 18px; text-align: right; color: var(--p); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nm { min-width: 0; overflow-wrap: anywhere; }
+.nm a { color: var(--link); font-weight: 600; text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--link) 40%, transparent); }
+.nm a::after { content: "\2197"; font-size: 0.75em; margin-left: 2px; opacity: 0.7; }
+.nm a:hover { border-bottom-color: var(--link); }
+.pair .nm { font-size: 14px; color: var(--muted); }
+.pair .nm a { font-size: 15px; }
+.scheme { margin-top: 8px; padding: 6px 10px; background: var(--chip); border-radius: 6px; font-family: var(--display); font-weight: 600; font-size: 16px; letter-spacing: 0.02em; align-self: flex-start; font-variant-numeric: tabular-nums; }
+.lines li.scheme:first-child { margin-top: 4px; }
+.note { padding: 6px 0 2px; font-size: 13px; color: var(--muted); font-style: italic; }
+.then { display: flex; align-items: center; gap: 10px; margin: 10px 0 2px; font-family: var(--display); font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.then::before, .then::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+.prog { padding: 10px 14px 14px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.prog .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.prog .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.prog .steps div { border: 1px solid var(--line); border-radius: 6px; padding: 5px 4px; text-align: center; font-variant-numeric: tabular-nums; }
+.prog .steps b { display: block; font-family: var(--display); font-size: 17px; font-weight: 700; line-height: 1.1; }
+.prog .steps small { display: block; font-size: 11px; color: var(--muted); line-height: 1.2; }
+.prog .steps div.on { border-color: var(--plate-str); background: color-mix(in srgb, var(--plate-str) 12%, transparent); }
+.prog .steps div.on b { color: var(--plate-str); }
+
+footer { color: var(--muted); font-size: 12px; text-align: center; padding: 4px 0 0; }
+
+/* timer chips */
+.has-timer { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.lines li.scheme.has-timer { align-self: stretch; }
+.tchips { display: flex; gap: 6px; flex: none; }
+.tchip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--display); font-weight: 700; font-size: 15px; font-style: normal; letter-spacing: 0.03em; color: var(--ink); background: var(--surface); border: 1.5px solid var(--p, var(--ink)); border-radius: 999px; padding: 3px 10px 3px 7px; cursor: pointer; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.tchip svg { width: 15px; height: 15px; flex: none; fill: var(--p, var(--ink)); }
+.tchip:hover { background: color-mix(in srgb, var(--p, var(--ink)) 10%, var(--surface)); }
+.bh .tchips { margin-left: auto; }
+main .wrap.timer-open { padding-bottom: 240px; }
+
+/* timer sheet */
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); border-top: 3px solid var(--p, var(--ink)); box-shadow: 0 -8px 24px rgba(0,0,0,.18); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.sheet .wrap { display: flex; flex-direction: column; gap: 8px; padding-block: 12px 14px; }
+.sh-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.sh-title { font-family: var(--display); font-weight: 700; font-size: 16px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-close { font: inherit; font-size: 13px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 4px 2px; }
+.sh-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sh-phase { font-family: var(--display); font-weight: 700; font-size: 22px; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.05; min-width: 0; }
+.sh-phase small { display: block; font-family: var(--body); font-weight: 500; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--muted); margin-top: 2px; }
+.sh-clock { font-family: var(--display); font-weight: 700; font-size: 58px; line-height: 0.9; font-variant-numeric: tabular-nums; flex: none; }
+.sheet[data-kind="rest"] .sh-clock, .sheet[data-kind="ready"] .sh-clock { color: var(--muted); }
+.sheet[data-kind="work"] .sh-clock { color: var(--p, var(--ink)); }
+.sh-prog { height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; }
+.sh-prog i { display: block; height: 100%; width: 0; background: var(--p, var(--ink)); }
+.sh-next { font-size: 13px; color: var(--muted); min-height: 1.2em; }
+.sh-btns { display: flex; gap: 8px; }
+.sh-btns button { font: inherit; font-family: var(--display); font-weight: 700; font-size: 17px; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 8px; padding: 10px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.sh-btns .go { flex: 1; background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.sh-btns .rounds { font-variant-numeric: tabular-nums; }
+
+/* phone turned sideways: the open timer fills the screen */
+@media (orientation: landscape) and (max-height: 600px) {
+  .sheet:not([hidden]) { top: 0; border-top-width: 8px; box-shadow: none; display: flex; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+  .sheet .wrap { max-width: none; width: 100%; height: 100%; justify-content: space-between; gap: 2vh; padding-block: 3vh; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+  .sh-title { font-size: max(15px, 4.5vh); }
+  .sh-close { font-size: max(14px, 4vh); }
+  .sh-main { flex: 1; min-height: 0; gap: 4vw; }
+  .sh-phase { font-size: max(22px, 10vh); max-width: 42vw; }
+  .sh-phase small { font-size: max(14px, 5vh); margin-top: 1vh; }
+  .sh-clock { font-size: min(50vh, 30vw); line-height: 0.85; }
+  .sh-prog { height: max(6px, 2vh); }
+  .sh-next { font-size: max(13px, 4.5vh); }
+  .sh-btns button { font-size: max(16px, 5vh); padding: 1.6vh 3vw; }
+}
+@media (prefers-reduced-motion: no-preference) { section.block { animation: rise .25s ease-out both; } @keyframes rise { from { transform: translateY(4px); opacity: .6; } to { transform: none; opacity: 1; } } }
+</style>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="brand"><h1>Pina &amp; Ermira</h1><span class="dates" id="dates"></span></div>
+    <div class="days" id="days" role="group" aria-label="Day"></div>
+  </div>
+</header>
+<main><div class="wrap" id="view"></div></main>
+<div class="sheet" id="sheet" hidden role="region" aria-label="Timer">
+  <div class="wrap">
+    <div class="sh-top"><span class="sh-title" id="shTitle"></span><button type="button" class="sh-close" id="shClose">Close</button></div>
+    <div class="sh-main"><div class="sh-phase" id="shPhase"></div><div class="sh-clock" id="shClock" aria-live="off">0:00</div></div>
+    <div class="sh-prog"><i id="shProg"></i></div>
+    <div class="sh-next" id="shNext"></div>
+    <div class="sh-btns"><button type="button" class="go" id="shGo">Start</button><button type="button" class="rounds" id="shRounds" hidden>+1 round</button><button type="button" id="shReset">Reset</button></div>
+  </div>
+</div>
+
+<script>
+const DATA = {"n":1,"dates":"26/10 - 31/10","days":[{"label":"Day 1","title":"Lower","blocks":[{"name":"Warm-up","kind":"warm","min":10,"lines":[{"k":"scheme","s":[{"t":"2 rounds of:"}]},{"k":"ex","q":"2'","s":[{"t":"Bike or Row @ easy"}]},{"k":"ex","q":"10","s":[{"t":"Bodyweight Squats","u":"https://www.acefitness.org/resources/everyone/exercise-library/135/bodyweight-squat/"},{"t":" (to a box)"}]},{"k":"ex","q":"10","s":[{"t":"Glute Bridges","u":"https://www.acefitness.org/resources/everyone/exercise-library/49/glute-bridge/"}]},{"k":"ex","q":"6+6","s":[{"t":"Reverse Lunges","u":"https://www.acefitness.org/resources/everyone/exercise-library/319/reverse-lunge/"},{"t":" (hold onto something if needed)"}]},{"k":"ex","q":"20\"","s":[{"t":"Plank","u":"https://www.acefitness.org/resources/everyone/exercise-library/32/front-plank/"},{"t":" on knees"}]},{"k":"ex","q":"10","s":[{"t":"Cat-Cow","u":"https://www.acefitness.org/resources/everyone/exercise-library/15/cat-cow/"}]}],"sub":"@ easy pace"},{"name":"Strength","kind":"str","min":20,"lines":[{"k":"ex","q":"","s":[{"t":"Leg Press","u":"https://www.acefitness.org/resources/everyone/exercise-library/154/seated-leg-press/"}]},{"k":"scheme","s":[{"t":"4 sets of 10 reps"}]},{"k":"ex","q":"","s":[{"t":"after every set perform 10 "},{"t":"Seated Leg Curls","u":"https://fitbod.me/exercises/seated-leg-curl"},{"t":" (machine)"}]},{"k":"note","s":[{"t":"Rest 90\" btw sets"}]},{"k":"then"},{"k":"scheme","s":[{"t":"3 sets of:"}]},{"k":"ex","q":"10","s":[{"t":"Goblet Squats","u":"https://www.acefitness.org/resources/everyone/exercise-library/362/goblet-squat/"},{"t":" to box @ KB/DB"}]},{"k":"ex","q":"12","s":[{"t":"Leg Extensions","u":"https://www.acefitness.org/resources/everyone/exercise-library/183/seated-leg-extension/"},{"t":" (machine)"}]},{"k":"note","s":[{"t":"Rest 90\" btw sets"}]},{"k":"note","s":[{"t":"Pick a weight that leaves 2-3 reps in the tank, same weight for all sets"}]}]},{"name":"Cardio / HIIT","kind":"cond","min":12,"lines":[{"k":"scheme","s":[{"t":"40\" on - 20\" off x 3 rounds"}]},{"k":"ex","q":"I","s":[{"t":"Bike or Row"}]},{"k":"ex","q":"II","s":[{"t":"MB Squat","u":"https://www.acefitness.org/resources/everyone/exercise-library/288/squat/"}]},{"k":"ex","q":"III","s":[{"t":"KB Sumo Deadlift","u":"https://au.gymreapers.com/blogs/news/kettlebell-sumo-deadlift"}]},{"k":"ex","q":"IV","s":[{"t":"Step-ups","u":"https://www.acefitness.org/resources/everyone/exercise-library/28/step-up/"},{"t":" on box (alternate legs)"}]}]},{"name":"Cool-Down","kind":"cool","min":5,"lines":[{"k":"ex","q":"45\"+45\"","s":[{"t":"Hamstring stretch","u":"https://www.acefitness.org/resources/everyone/exercise-library/235/supine-hamstrings-stretch/"}]},{"k":"ex","q":"45\"+45\"","s":[{"t":"Kneeling hip flexor stretch","u":"https://www.acefitness.org/resources/everyone/exercise-library/142/kneeling-hip-flexor-stretch/"}]},{"k":"ex","q":"1'","s":[{"t":"Child's pose","u":"https://www.acefitness.org/resources/everyone/exercise-library/227/childs-pose/"}]}]}]},{"label":"Day 2","title":"Upper","blocks":[{"name":"Warm-up","kind":"warm","min":10,"lines":[{"k":"scheme","s":[{"t":"2 rounds of:"}]},{"k":"ex","q":"2'","s":[{"t":"Row or Bike @ easy"}]},{"k":"ex","q":"10","s":[{"t":"Cat-Cow","u":"https://www.acefitness.org/resources/everyone/exercise-library/15/cat-cow/"}]},{"k":"ex","q":"6+6","s":[{"t":"Dead Bugs","u":"https://www.acefitness.org/resources/everyone/exercise-library/147/supine-dead-bug/"}]},{"k":"ex","q":"8","s":[{"t":"Push-ups","u":"https://www.acefitness.org/resources/everyone/exercise-library/41/push-up/"},{"t":" with hands on a bench"}]},{"k":"ex","q":"20\"","s":[{"t":"Plank","u":"https://www.acefitness.org/resources/everyone/exercise-library/32/front-plank/"},{"t":" on knees"}]},{"k":"ex","q":"10","s":[{"t":"Bodyweight Squats","u":"https://www.acefitness.org/resources/everyone/exercise-library/135/bodyweight-squat/"}]}],"sub":"@ easy pace"},{"name":"Strength","kind":"str","min":20,"lines":[{"k":"scheme","s":[{"t":"Every 2:30\" x 4 sets"}]},{"k":"ex","q":"10","s":[{"t":"Lat Pulldown","u":"https://www.acefitness.org/resources/everyone/exercise-library/158/seated-lat-pulldown/"}]},{"k":"ex","q":"10","s":[{"t":"Chest Press","u":"https://www.acefitness.org/resources/everyone/exercise-library/188/seated-chest-press/"},{"t":" (machine)"}]},{"k":"then"},{"k":"scheme","s":[{"t":"3 sets of:"}]},{"k":"ex","q":"12","s":[{"t":"Seated Cable Row","u":"https://www.acefitness.org/resources/everyone/exercise-library/48/seated-row/"}]},{"k":"ex","q":"10","s":[{"t":"Shoulder Press","u":"https://www.acefitness.org/resources/everyone/exercise-library/186/seated-shoulder-press/"},{"t":" (machine)"}]},{"k":"ex","q":"20\"","s":[{"t":"Plank","u":"https://www.acefitness.org/resources/everyone/exercise-library/32/front-plank/"}]},{"k":"note","s":[{"t":"Rest 60-90\" btw sets"}]},{"k":"note","s":[{"t":"Pick a weight that leaves 2-3 reps in the tank, same weight for all sets"}]}]},{"name":"Full Body Circuit","kind":"cond","min":12,"lines":[{"k":"scheme","s":[{"t":"Amrap 12' for quality"}]},{"k":"ex","q":"10","s":[{"t":"Air Squats","u":"https://www.acefitness.org/resources/everyone/exercise-library/135/bodyweight-squat/"}]},{"k":"ex","q":"20","s":[{"t":"Mountain Climbers","u":"https://www.acefitness.org/resources/everyone/exercise-library/258/mountain-climbers/"},{"t":" (slow, hands on a bench if needed)"}]},{"k":"ex","q":"8+8","s":[{"t":"Reverse Lunges","u":"https://www.acefitness.org/resources/everyone/exercise-library/319/reverse-lunge/"}]},{"k":"ex","q":"10","s":[{"t":"Crunches","u":"https://www.acefitness.org/resources/everyone/exercise-library/52/crunch/"}]},{"k":"ex","q":"8","s":[{"t":"Slam Ball Slams","u":"https://www.acefitness.org/resources/everyone/exercise-library/182/overhead-slams/"}]},{"k":"note","s":[{"t":"Rest as needed"}]}]},{"name":"Cool-Down","kind":"cool","min":5,"lines":[{"k":"ex","q":"45\"+45\"","s":[{"t":"Standing chest stretch","u":"https://www.acefitness.org/resources/everyone/exercise-library/209/standing-chest-stretch/"}]},{"k":"ex","q":"45\"+45\"","s":[{"t":"Lat stretch","u":"https://www.acefitness.org/resources/everyone/exercise-library/198/90-lat-stretch/"}]},{"k":"ex","q":"1'","s":[{"t":"Child's pose","u":"https://www.acefitness.org/resources/everyone/exercise-library/227/childs-pose/"}]}]}]}]};
+let state = { d: 0 };
+
+function pickDefault() {
+  const h = (location.hash || "").match(/^#d([1-9])$/);
+  if (h && +h[1] <= DATA.days.length) return { d: +h[1] - 1 };
+  try { const s = JSON.parse(localStorage.getItem("pe-day")); if (s && s.d >= 0 && s.d < DATA.days.length) return s; } catch (e) {}
+  return { d: 0 };
+}
+
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function segsInto(node, segs) {
+  segs.forEach(s => {
+    if (s.u) { const a = el("a", null, s.t); a.href = s.u; a.target = "_blank"; a.rel = "noopener"; node.appendChild(a); }
+    else node.appendChild(document.createTextNode(s.t));
+  });
+}
+
+/* ---------- timers ---------- */
+const ROMAN = /^(I{1,3}|IV|V|VI)$/;
+const txtOf = l => (l.s || []).map(s => s.t).join("").trim();
+const fmt = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+
+function stationsAfter(b, i) {
+  const out = [];
+  for (let j = i + 1; j < b.lines.length; j++) {
+    const l = b.lines[j];
+    if (l.k === "then" || l.k === "scheme") break;
+    if (l.k === "ex" && ROMAN.test(l.q || "")) out.push(txtOf(l).replace(/\s*\(.*?\)\s*/g, " ").trim());
+  }
+  return out;
+}
+
+// Returns a list of timers for line i of block b (or the block header when i = -1).
+function timersFor(b, i) {
+  const READY = 10;
+  if (i === -1) {
+    if (b.kind === "warm" || b.kind === "cool")
+      return [{ label: fmt(b.min * 60), title: b.name, phases: [{ kind: "work", secs: b.min * 60, label: b.name }] }];
+    return [];
+  }
+  const l = b.lines[i], t = txtOf(l);
+  if (l.k === "scheme") {
+    let m = t.match(/(\d+)"\s*on\s*-\s*(\d+)"\s*off\s*x\s*(\d+)\s*rounds?/i);
+    if (m) {
+      const on = +m[1], off = +m[2], rounds = +m[3], st = stationsAfter(b, i);
+      const names = st.length ? st : ["Work"];
+      const phases = [{ kind: "ready", secs: READY, label: "Get ready", next: names[0] }];
+      for (let r = 1; r <= rounds; r++) names.forEach((n, k) => {
+        phases.push({ kind: "work", secs: on, label: n, sub: "Round " + r + " of " + rounds });
+        const last = r === rounds && k === names.length - 1;
+        if (!last) phases.push({ kind: "rest", secs: off, label: "Rest", sub: "Next: " + names[(k + 1) % names.length] });
+      });
+      return [{ label: fmt(rounds * names.length * (on + off) - off), title: b.name + " · " + on + "/" + off, phases }];
+    }
+    m = t.match(/Every\s+(\d+)(?::(\d{2}))?\s*(['"’”])\s*x\s*(\d+)\s*sets?/i);
+    if (m) {
+      const per = m[2] != null ? +m[1] * 60 + +m[2] : (/["”]/.test(m[3]) ? +m[1] : +m[1] * 60);
+      const sets = +m[4], st = stationsAfter(b, i);
+      let together = "";
+      if (!st.length) {
+        const ex = [];
+        for (let j = i + 1; j < b.lines.length && b.lines[j].k === "ex"; j++)
+          ex.push(((b.lines[j].q ? b.lines[j].q + " " : "") + txtOf(b.lines[j]).replace(/\s*\(.*?\)\s*/g, " ")).trim());
+        together = (ex.join(" + ") || "Your set") + ", then rest";
+      }
+      const phases = [{ kind: "ready", secs: READY, label: "Get ready", next: st[0] || together }];
+      for (let s = 1; s <= sets; s++)
+        phases.push({ kind: "work", secs: per, label: "Set " + s + " of " + sets, sub: st.length ? st[(s - 1) % st.length] : together });
+      return [{ label: fmt(per * sets), title: b.name + " · every " + fmt(per), phases }];
+    }
+    m = t.match(/(Amrap|AMRAP|Ladder)\D*?(\d+)\s*['’]/);
+    if (m) {
+      const secs = +m[2] * 60;
+      return [{ label: fmt(secs), title: b.name + " · " + m[1], rounds: true,
+        phases: [{ kind: "ready", secs: READY, label: "Get ready" }, { kind: "work", secs, label: m[1] === "Ladder" ? "Ladder" : "AMRAP", sub: "Tap +1 round as you finish each one" }] }];
+    }
+    return [];
+  }
+  if (l.k === "note") {
+    const m = t.match(/^Rest\s+(?:(\d+)\s*-\s*)?(\d+)\s*(["”'’])/i);
+    if (m) {
+      const unit = /['’]/.test(m[3]) ? 60 : 1;
+      const opts = m[1] ? [+m[1] * unit, +m[2] * unit] : [+m[2] * unit];
+      return opts.map(secs => ({ label: fmt(secs), title: b.name + " · rest", phases: [{ kind: "rest", secs, label: "Rest", sub: "Start the next set when it beeps" }] }));
+    }
+  }
+  return [];
+}
+
+const CLOCK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 1h6v2H9zM12 4a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 16a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm1-11h-2v5.4l4 2.3 1-1.7-3-1.8z"/></svg>';
+function chipsFor(b, i) {
+  const ts = timersFor(b, i);
+  if (!ts.length) return null;
+  const wrap = el("span", "tchips");
+  ts.forEach(t => {
+    const btn = el("button", "tchip"); btn.type = "button";
+    btn.innerHTML = CLOCK_SVG; btn.appendChild(document.createTextNode(t.label));
+    btn.setAttribute("aria-label", "Start timer " + t.label + " for " + t.title);
+    btn.onclick = () => T.open(t, b.kind);
+    wrap.appendChild(btn);
+  });
+  return wrap;
+}
+
+const T = (() => {
+  const $ = id => document.getElementById(id);
+  const sheet = $("sheet");
+  let cfg = null, idx = 0, left = 0, running = false, last = 0, raf = 0, rounds = 0, ac = null, wake = null, lastBeep = -1;
+  const total = () => cfg.phases.reduce((a, p) => a + p.secs, 0);
+  const done = () => cfg.phases.slice(0, idx).reduce((a, p) => a + p.secs, 0) + (cfg.phases[idx] ? cfg.phases[idx].secs - left : 0);
+
+  function beep(freq, dur) {
+    try {
+      if (!ac) return;
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = "square"; o.frequency.value = freq; g.gain.value = 0.08;
+      o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
+    } catch (e) {}
+  }
+  function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
+
+  function paint() {
+    const p = cfg.phases[idx];
+    sheet.dataset.kind = p ? p.kind : "rest";
+    $("shClock").textContent = fmt(p ? left : 0);
+    const ph = $("shPhase"); ph.textContent = p ? p.label : "Done";
+    const sub = p ? (p.sub || (p.next ? "First: " + p.next : "")) : "Nice work";
+    if (sub) ph.appendChild(el("small", null, sub));
+    const nx = cfg.phases[idx + 1];
+    $("shNext").textContent = nx ? "Then: " + nx.label + (nx.kind === "work" && nx.sub && !/^Round/.test(nx.sub) ? " · " + nx.sub : "") + " (" + fmt(nx.secs) + ")" : (p ? "Last one" : "");
+    $("shProg").style.width = (100 * done() / total()) + "%";
+    $("shGo").textContent = !p ? "Again" : running ? "Pause" : (done() > 0 ? "Resume" : "Start");
+    $("shRounds").textContent = "+1 round" + (rounds ? " (" + rounds + ")" : "");
+  }
+  function tick(now) {
+    if (!running) return;
+    left -= (now - last) / 1000; last = now;
+    const whole = Math.ceil(left);
+    if (whole <= 3 && whole >= 1 && whole !== lastBeep) { lastBeep = whole; beep(660, 0.12); }
+    if (left <= 0) {
+      idx++; lastBeep = -1;
+      if (idx >= cfg.phases.length) { running = false; beep(880, 0.6); buzz([200, 100, 200]); releaseWake(); paint(); return; }
+      left += cfg.phases[idx].secs;
+      beep(cfg.phases[idx].kind === "work" ? 990 : 520, 0.35); buzz(250);
+    }
+    paint(); raf = requestAnimationFrame(tick);
+  }
+  async function holdWake() { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request("screen"); } catch (e) { wake = null; } }
+  function releaseWake() { try { wake && wake.release(); } catch (e) {} wake = null; }
+  function reset() { running = false; cancelAnimationFrame(raf); idx = 0; left = cfg.phases[0].secs; rounds = 0; lastBeep = -1; releaseWake(); paint(); }
+
+  $("shGo").onclick = () => {
+    try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume && ac.resume(); } catch (e) { ac = null; }
+    if (idx >= cfg.phases.length) reset();
+    running = !running;
+    if (running) { last = performance.now(); holdWake(); raf = requestAnimationFrame(tick); } else { cancelAnimationFrame(raf); releaseWake(); }
+    paint();
+  };
+  $("shReset").onclick = () => reset();
+  $("shRounds").onclick = () => { rounds++; paint(); };
+  $("shClose").onclick = () => { running = false; cancelAnimationFrame(raf); releaseWake(); sheet.hidden = true; document.getElementById("view").classList.remove("timer-open"); };
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && running) holdWake(); });
+
+  return {
+    open(t, kind) {
+      cancelAnimationFrame(raf); cfg = t;
+      sheet.className = "sheet k-" + kind;
+      $("shTitle").textContent = t.title;
+      $("shRounds").hidden = !t.rounds;
+      sheet.hidden = false; document.getElementById("view").classList.add("timer-open");
+      reset();
+    },
+    close() { $("shClose").onclick(); }
+  };
+})();
+
+function renderNav() {
+  const dy = document.getElementById("days"); dy.textContent = "";
+  DATA.days.forEach((d, i) => {
+    const b = el("button"); b.type = "button"; b.id = "day" + (i + 1);
+    b.append(el("span", "d", d.label), el("span", "t", d.title));
+    b.setAttribute("aria-pressed", i === state.d); b.onclick = () => go({ d: i }); dy.appendChild(b);
+  });
+  document.getElementById("dates").textContent = "Week " + DATA.n + " · " + DATA.dates;
+}
+
+function renderDay() {
+  const v = document.getElementById("view"); v.textContent = "";
+  const day = DATA.days[state.d];
+  const total = day.blocks.reduce((a, b) => a + b.min, 0);
+
+  const tl = el("div", "timeline");
+  const bar = el("div", "tl-bar"); bar.setAttribute("aria-hidden", "true");
+  day.blocks.forEach(b => { const s = el("span", "k-" + b.kind, b.min + "'"); s.style.flex = b.min; bar.appendChild(s); });
+  const meta = el("div", "tl-meta");
+  meta.append(el("span", null, total + "' of work"), el("span", null, "plus changeovers"));
+  tl.append(bar, meta); v.appendChild(tl);
+
+  day.blocks.forEach(b => {
+    const sec = el("section", "block k-" + b.kind);
+    const bh = el("div", "bh");
+    const plate = el("div", "plate", b.min + "'"); plate.setAttribute("aria-label", b.min + " minutes");
+    const ht = el("div"); ht.appendChild(el("h2", null, b.name));
+    if (b.sub) ht.appendChild(el("div", "sub", b.sub));
+    bh.append(plate, ht);
+    const hc = chipsFor(b, -1); if (hc) bh.appendChild(hc);
+    sec.appendChild(bh);
+    const ul = el("ul", "lines");
+    b.lines.forEach((l, i) => {
+      let li;
+      if (l.k === "then") li = el("li", "then", "then");
+      else if (l.k === "note" || l.k === "scheme") {
+        li = el("li", l.k); const span = el("span"); segsInto(span, l.s); li.appendChild(span);
+        const c = chipsFor(b, i); if (c) { li.classList.add("has-timer"); li.appendChild(c); }
+      }
+      else {
+        const txt = l.s.map(s => s.t).join("");
+        li = el("li", "ex" + (/^after every set/.test(txt) ? " pair" : ""));
+        li.appendChild(el("span", "q", l.q || (/^after every set/.test(txt) ? "+" : "")));
+        const nm = el("span", "nm"); segsInto(nm, l.s); li.appendChild(nm);
+      }
+      ul.appendChild(li);
+    });
+    sec.appendChild(ul);
+    v.appendChild(sec);
+  });
+  v.appendChild(el("footer", null, "Tap an exercise name to see how to do it. Tap a clock to start that part's timer."));
+}
+
+function go(s) {
+  T.close();
+  state = s;
+  try { localStorage.setItem("pe-day", JSON.stringify(s)); } catch (e) {}
+  renderNav(); renderDay();
+  window.scrollTo({ top: 0 });
+}
+state = pickDefault(); renderNav(); renderDay();
+</script>
+</body></html>
