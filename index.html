@@ -121,6 +121,8 @@ main .wrap.timer-open { padding-bottom: 240px; }
 .sh-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .sh-title { font-family: var(--display); font-weight: 700; font-size: 16px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sh-close { font: inherit; font-size: 13px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 4px 2px; }
+.sh-actions { display: flex; gap: 14px; flex: none; }
+#shSound[aria-pressed="false"] { text-decoration: line-through; }
 .sh-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sh-phase { font-family: var(--display); font-weight: 700; font-size: 22px; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.05; min-width: 0; }
 .sh-phase small { display: block; font-family: var(--body); font-weight: 500; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--muted); margin-top: 2px; }
@@ -161,7 +163,7 @@ main .wrap.timer-open { padding-bottom: 240px; }
 <main><div class="wrap" id="view"></div></main>
 <div class="sheet" id="sheet" hidden role="region" aria-label="Timer">
   <div class="wrap">
-    <div class="sh-top"><span class="sh-title" id="shTitle"></span><button type="button" class="sh-close" id="shClose">Close</button></div>
+    <div class="sh-top"><span class="sh-title" id="shTitle"></span><span class="sh-actions"><button type="button" class="sh-close" id="shSound" aria-pressed="true">Sound on</button><button type="button" class="sh-close" id="shClose">Close</button></span></div>
     <div class="sh-main"><div class="sh-phase" id="shPhase"></div><div class="sh-clock" id="shClock" aria-live="off">0:00</div></div>
     <div class="sh-prog"><i id="shProg"></i></div>
     <div class="sh-next" id="shNext"></div>
@@ -208,7 +210,7 @@ function timersFor(b, i) {
   const READY = 10;
   if (i === -1) {
     if (b.kind === "warm" || b.kind === "cool")
-      return [{ label: fmt(b.min * 60), title: b.name, phases: [{ kind: "work", secs: b.min * 60, label: b.name }] }];
+      return [{ label: fmt(b.min * 60), title: b.name, minutes: true, phases: [{ kind: "work", secs: b.min * 60, label: b.name, sub: "A ding marks every new minute" }] }];
     return [];
   }
   const l = b.lines[i], t = txtOf(l);
@@ -244,7 +246,7 @@ function timersFor(b, i) {
     m = t.match(/(Amrap|AMRAP|Ladder)\D*?(\d+)\s*['’]/);
     if (m) {
       const secs = +m[2] * 60;
-      return [{ label: fmt(secs), title: b.name + " · " + m[1], rounds: true,
+      return [{ label: fmt(secs), title: b.name + " · " + m[1], rounds: true, minutes: true,
         phases: [{ kind: "ready", secs: READY, label: "Get ready" }, { kind: "work", secs, label: m[1] === "Ladder" ? "Ladder" : "AMRAP", sub: "Tap +1 round as you finish each one" }] }];
     }
     return [];
@@ -278,17 +280,54 @@ function chipsFor(b, i) {
 const T = (() => {
   const $ = id => document.getElementById(id);
   const sheet = $("sheet");
-  let cfg = null, idx = 0, left = 0, running = false, last = 0, raf = 0, rounds = 0, ac = null, wake = null, lastBeep = -1;
+  let cfg = null, idx = 0, left = 0, running = false, last = 0, raf = 0, rounds = 0, wake = null, lastBeep = -1, lastMin = -1;
+  let soundOn = true, primed = false;
+  try { soundOn = localStorage.getItem("pe-sound") !== "off"; } catch (e) {}
   const total = () => cfg.phases.reduce((a, p) => a + p.secs, 0);
   const done = () => cfg.phases.slice(0, idx).reduce((a, p) => a + p.secs, 0) + (cfg.phases[idx] ? cfg.phases[idx].secs - left : 0);
 
-  function beep(freq, dur) {
+  // Sounds are rendered once into small WAV files and played through <audio>,
+  // which phones treat as media (it plays even when the ringer is on silent).
+  function wav(dur, fn) {
+    const rate = 22050, n = Math.floor(rate * dur), buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    str(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); str(8, "WAVEfmt "); v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, "data"); v.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) { const s = Math.max(-1, Math.min(1, fn(i / rate))); v.setInt16(44 + i * 2, s * 32767, true); }
+    let bin = ""; const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    return "data:audio/wav;base64," + btoa(bin);
+  }
+  const TAU = Math.PI * 2;
+  const bell = (f, decay) => t => (Math.sin(TAU * f * t) * 0.6 + Math.sin(TAU * f * 2.01 * t) * 0.25 + Math.sin(TAU * f * 3.02 * t) * 0.1) * Math.exp(-t * decay) * Math.min(1, t * 400);
+  const SOUNDS = {};
+  function makeSounds() {
+    if (SOUNDS.ding) return;
+    const mk = (dur, fn) => { const a = new Audio(wav(dur, fn)); a.preload = "auto"; return a; };
+    SOUNDS.ding = mk(1.1, bell(880, 4));
+    SOUNDS.rest = mk(0.9, bell(587, 5));
+    SOUNDS.tick = mk(0.12, t => Math.sin(TAU * 1200 * t) * Math.exp(-t * 40) * 0.5);
+    SOUNDS.finish = mk(1.8, t => bell(880, 3)(t) * 0.7 + (t > 0.35 ? bell(1175, 3)(t - 0.35) * 0.7 : 0));
+  }
+  function play(name) {
+    if (!soundOn) return;
+    try { const a = SOUNDS[name]; if (!a) return; a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  }
+  function say(text) {
+    if (!soundOn) return;
     try {
-      if (!ac) return;
-      const o = ac.createOscillator(), g = ac.createGain();
-      o.type = "square"; o.frequency.value = freq; g.gain.value = 0.08;
-      o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
+      if (!window.speechSynthesis) return;
+      const u = new SpeechSynthesisUtterance(text); u.rate = 1.15; u.lang = "en-AU";
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
     } catch (e) {}
+  }
+  // Phones only allow sound that was first started by a tap, so the Start tap unlocks every sound.
+  function prime() {
+    makeSounds();
+    if (primed) return; primed = true;
+    Object.values(SOUNDS).forEach(a => { try { a.muted = true; const p = a.play(); const done = () => { a.pause(); a.currentTime = 0; a.muted = false; }; if (p && p.then) p.then(done, done); else done(); } catch (e) {} });
+    try { if (window.speechSynthesis) { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } } catch (e) {}
   }
   function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
 
@@ -308,27 +347,40 @@ const T = (() => {
   function tick(now) {
     if (!running) return;
     left -= (now - last) / 1000; last = now;
-    const whole = Math.ceil(left);
-    if (whole <= 3 && whole >= 1 && whole !== lastBeep) { lastBeep = whole; beep(660, 0.12); }
+    const whole = Math.ceil(left), p = cfg.phases[idx];
+    // spoken 3-2-1 at the end of every phase that is long enough to need it
+    if (whole <= 3 && whole >= 1 && whole !== lastBeep && p.secs >= 8) { lastBeep = whole; play("tick"); say(String(whole)); }
+    // a ding at each new minute during long single countdowns (AMRAP, warm-up, cool-down)
+    const min = Math.ceil(left / 60);
+    if (cfg.minutes && p.kind === "work" && min !== lastMin) { if (lastMin !== -1 && left > 3) play("ding"); lastMin = min; }
     if (left <= 0) {
-      idx++; lastBeep = -1;
-      if (idx >= cfg.phases.length) { running = false; beep(880, 0.6); buzz([200, 100, 200]); releaseWake(); paint(); return; }
+      idx++; lastBeep = -1; lastMin = -1;
+      if (idx >= cfg.phases.length) { running = false; play("finish"); buzz([200, 100, 200]); releaseWake(); paint(); return; }
       left += cfg.phases[idx].secs;
-      beep(cfg.phases[idx].kind === "work" ? 990 : 520, 0.35); buzz(250);
+      play(cfg.phases[idx].kind === "work" ? "ding" : "rest"); buzz(250);
+      if (cfg.minutes) lastMin = Math.ceil(left / 60);
     }
     paint(); raf = requestAnimationFrame(tick);
   }
   async function holdWake() { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request("screen"); } catch (e) { wake = null; } }
   function releaseWake() { try { wake && wake.release(); } catch (e) {} wake = null; }
-  function reset() { running = false; cancelAnimationFrame(raf); idx = 0; left = cfg.phases[0].secs; rounds = 0; lastBeep = -1; releaseWake(); paint(); }
+  function reset() { running = false; cancelAnimationFrame(raf); idx = 0; left = cfg.phases[0].secs; rounds = 0; lastBeep = -1; lastMin = -1; releaseWake(); paint(); }
+  function paintSound() { const b = $("shSound"); b.textContent = soundOn ? "Sound on" : "Sound off"; b.setAttribute("aria-pressed", soundOn); }
 
   $("shGo").onclick = () => {
-    try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume && ac.resume(); } catch (e) { ac = null; }
+    prime();
     if (idx >= cfg.phases.length) reset();
+    const starting = !running && done() === 0;
     running = !running;
-    if (running) { last = performance.now(); holdWake(); raf = requestAnimationFrame(tick); } else { cancelAnimationFrame(raf); releaseWake(); }
+    if (running) {
+      last = performance.now(); holdWake(); raf = requestAnimationFrame(tick);
+      if (starting && cfg.phases[0].kind === "work") play("ding");
+      if (starting && cfg.minutes) lastMin = Math.ceil(left / 60);
+    } else { cancelAnimationFrame(raf); releaseWake(); }
     paint();
   };
+  $("shSound").onclick = () => { soundOn = !soundOn; try { localStorage.setItem("pe-sound", soundOn ? "on" : "off"); } catch (e) {} if (soundOn) { prime(); play("tick"); } paintSound(); };
+  paintSound();
   $("shReset").onclick = () => reset();
   $("shRounds").onclick = () => { rounds++; paint(); };
   $("shClose").onclick = () => { running = false; cancelAnimationFrame(raf); releaseWake(); sheet.hidden = true; document.getElementById("view").classList.remove("timer-open"); };
